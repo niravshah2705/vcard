@@ -58,19 +58,24 @@ def generate():
     if not (contact.first or contact.last):
         return jsonify(error="Please provide at least a first or last name."), 400
 
-    payload = V.build_vcard(contact)
-    try:
-        qr = V.make_qr(payload)
-    except Exception as exc:
-        return jsonify(error=f"Payload too large for a QR code ({len(payload)} bytes): {exc}"), 400
-
-    theme = V.THEMES.get(data.get("theme"), V.THEMES["indigo"])
+    social_note = bool(data.get("social_note", True))
+    center_badge = bool(data.get("center_badge", True))
+    payload = V.build_vcard(contact, social_note=social_note)
     try:
         logo_source = _decode_logo(data.get("logo"))
     except Exception:
         logo_source = None
+    has_center = center_badge or logo_source is not None
+    ec = V.ERROR_CORRECT_H if has_center else V.ERROR_CORRECT_Q
+    try:
+        qr = V.make_qr(payload, ec=ec)
+    except Exception as exc:
+        return jsonify(error=f"Payload too large for a QR code ({len(payload)} bytes): {exc}"), 400
+
+    theme = V.THEMES.get(data.get("theme"), V.THEMES["indigo"])
     logo = V.prepare_logo(logo_source, contact,
-                          int((qr.modules_count + 8) * 12 * 0.20), theme)
+                          int((qr.modules_count + 8) * 12 * 0.16), theme) \
+        if has_center else None
 
     rendered = {
         "styled": V.render(qr, theme=theme, logo=logo),

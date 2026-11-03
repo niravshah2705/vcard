@@ -14,6 +14,8 @@ X-SOCIALPROFILE;TYPE=linkedin:https://linkedin.com/in/alexmorgan
 X-SOCIALPROFILE;TYPE=github:https://github.com/alexmorgan
 X-SOCIALPROFILE;TYPE=dribbble:https://dribbble.com/alexmorgan
 X-SOCIALPROFILE;TYPE=youtube:https://youtube.com/@alexmorgan
-NOTE:Building calm, useful interfaces.
+NOTE:Building calm, useful interfaces. | Social: x.com/alexmorgan · insta
+ gram.com/alex.builds · linkedin.com/in/alexmorgan · github.com/alexmorg
+ an · dribbble.com/alexmorgan · youtube.com/@alexmorgan
 REV:2026-11-03
 END:VCARD

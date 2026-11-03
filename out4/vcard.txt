@@ -1,0 +1,20 @@
+BEGIN:VCARD
+VERSION:3.0
+N:Morgan;Alex;;;
+FN:Alex Morgan
+TITLE:Product Designer
+ORG:Northwind Studio
+TEL;TYPE=CELL:+14155550123
+EMAIL;TYPE=INTERNET:alex@northwind.studio
+URL;TYPE=WORK:https://northwind.studio
+ADR;TYPE=WORK:;;;San Francisco;CA;;USA
+X-SOCIALPROFILE;TYPE=twitter:https://x.com/alexmorgan
+X-SOCIALPROFILE;TYPE=instagram:https://instagram.com/alex.builds
+X-SOCIALPROFILE;TYPE=linkedin:https://linkedin.com/in/alexmorgan
+X-SOCIALPROFILE;TYPE=github:https://github.com/alexmorgan
+X-SOCIALPROFILE;TYPE=dribbble:https://dribbble.com/alexmorgan
+X-SOCIALPROFILE;TYPE=youtube:https://youtube.com/@alexmorgan
+NOTE:Building calm, useful interfaces. | Social: x.com/alexmorgan · insta
+ gram.com/alex.builds · linkedin.com/in/alexmorgan · github.com/alexmorg
+ an · dribbble.com/alexmorgan · youtube.com/@alexmorgan
+END:VCARD

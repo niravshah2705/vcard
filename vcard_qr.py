@@ -6,13 +6,12 @@ website and social profiles (X-SOCIALPROFILE) out of one scan."""
 from __future__ import annotations
 
 import argparse
-import datetime
 import json
 from dataclasses import dataclass, field
 from pathlib import Path
 
 import qrcode
-from qrcode.constants import ERROR_CORRECT_H
+from qrcode.constants import ERROR_CORRECT_H, ERROR_CORRECT_Q
 from PIL import Image, ImageDraw, ImageFont
 
 SOCIAL_PLATFORMS = {
@@ -49,10 +48,6 @@ FONT_CANDIDATES = [
     "/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf",
 ]
 
-NUM_ALIGNMENT_PATTERNS = [0, 0, 0, 1, 1, 1, 1, 1, 2, 2, 2, 2, 2, 3, 3, 3, 3, 3,
-                          4, 4, 4, 4, 4, 5, 5, 5, 5, 5, 6, 6, 6, 6, 6, 7, 7, 7,
-                          7, 7, 7, 7, 7]
-
 
 @dataclass
 class Contact:
@@ -71,6 +66,7 @@ class Contact:
     postal: str = ""
     country: str = ""
     photo: str = ""
+    photo_url: str = ""
     social: dict = field(default_factory=dict)
 
     @property
@@ -85,6 +81,14 @@ class Contact:
 def hex_rgb(value: str) -> tuple[int, int, int]:
     value = value.lstrip("#")
     return tuple(int(value[i:i + 2], 16) for i in (0, 2, 4))
+
+
+def clamp_luminance(color: tuple[int, int, int], max_lum: float = 0.32):
+    lum = (0.2126 * color[0] + 0.7152 * color[1] + 0.0722 * color[2]) / 255
+    if lum <= max_lum or lum == 0:
+        return color
+    k = max_lum / lum
+    return tuple(round(c * k) for c in color)
 
 
 def lerp(a: tuple[int, int, int], b: tuple[int, int, int], t: float):
@@ -113,7 +117,7 @@ def social_value(platform: str, handle: str) -> tuple[str, str]:
     return vtype, url
 
 
-def build_vcard(contact: Contact) -> str:
+def build_vcard(contact: Contact, social_note: bool = True) -> str:
     lines = ["BEGIN:VCARD", "VERSION:3.0"]
     lines.append(f"N:{contact.last};{contact.first};;;")
     lines.append(f"FN:{contact.full_name}")
@@ -129,6 +133,8 @@ def build_vcard(contact: Contact) -> str:
         lines.append(f"EMAIL;TYPE=INTERNET:{contact.email}")
     if contact.website:
         lines.append(f"URL;TYPE=WORK:{contact.website}")
+    if contact.photo_url:
+        lines.append(f"PHOTO;VALUE=URL:{contact.photo_url}")
     if any([contact.street, contact.city, contact.region, contact.postal, contact.country]):
         lines.append(f"ADR;TYPE=WORK:;;{contact.street};{contact.city};{contact.region};{contact.postal};{contact.country}")
     for platform, handle in contact.social.items():
@@ -136,35 +142,37 @@ def build_vcard(contact: Contact) -> str:
             continue
         vtype, url = social_value(platform, handle)
         lines.append(f"X-SOCIALPROFILE;TYPE={vtype}:{url}")
+    note_parts = []
     if contact.note:
-        lines.append(f"NOTE:{contact.note}")
-    lines.append("REV:" + datetime.date.today().isoformat())
+        note_parts.append(contact.note)
+    if social_note and contact.social:
+        handles = " · ".join(
+            social_value(p, h)[1].replace("https://", "").replace("http://", "")
+            for p, h in contact.social.items() if h)
+        if handles:
+            note_parts.append("Social: " + handles)
+    if note_parts:
+        lines.append("NOTE:" + " | ".join(note_parts))
     lines.append("END:VCARD")
     return "\r\n".join(fold_line(l) for l in lines) + "\r\n"
 
 
-def make_qr(payload: str, min_version: int = 1) -> qrcode.QRCode:
-    qr = qrcode.QRCode(error_correction=ERROR_CORRECT_H)
+def make_qr(payload: str, ec=ERROR_CORRECT_H) -> qrcode.QRCode:
+    qr = qrcode.QRCode(error_correction=ec)
     qr.add_data(payload)
     qr.make(fit=True)
-    if qr.version < min_version:
-        qr = qrcode.QRCode(error_correction=ERROR_CORRECT_H, version=min_version)
+    if qr.version < 1:
+        qr = qrcode.QRCode(error_correction=ec, version=1)
         qr.add_data(payload)
         qr.make(fit=True)
     return qr
 
 
 def alignment_centers(version: int) -> list[int]:
-    if version == 1:
+    from qrcode.util import pattern_position
+    if version <= 1:
         return []
-    num = NUM_ALIGNMENT_PATTERNS[version - 1]
-    if num == 0:
-        return []
-    step = 26 if version == 32 else ((version * 4 + 4) // (num * 2 - 2)) * 2
-    centers = [6]
-    for i in range(num - 1):
-        centers.append(4 * version + 10 - i * step)
-    return sorted(set(centers))
+    return list(pattern_position(version))
 
 
 def load_font(size: int):
@@ -231,7 +239,8 @@ def render(qr: qrcode.QRCode, *, theme: dict, box: int = 12, border: int = 4,
     canvas = Image.new("RGB", (scale, scale), "white")
     draw = ImageDraw.Draw(canvas)
 
-    c1, c2 = hex_rgb(theme["fg"][0]), hex_rgb(theme["fg"][1])
+    c1 = clamp_luminance(hex_rgb(theme["fg"][0]))
+    c2 = clamp_luminance(hex_rgb(theme["fg"][1]))
     B, bs = border * ss, box * ss
 
     finder_zones = {
@@ -259,9 +268,9 @@ def render(qr: qrcode.QRCode, *, theme: dict, box: int = 12, border: int = 4,
         clear_half = half + int(bs * 0.9)
         logo_clear = (cx - clear_half, cy - clear_half, cx + clear_half, cy + clear_half)
 
-    ratio = 0.82 if style == "dots" else 0.96
+    ratio = 0.95
     half = bs * ratio / 2
-    corner = half if style == "dots" else half * 0.62
+    corner = half * (1.0 if style == "dots" else 0.45)
     for r in range(n):
         for c in range(n):
             if not matrix[r][c] or in_finder(r, c) or (r, c) in align_zones:
@@ -284,14 +293,14 @@ def render(qr: qrcode.QRCode, *, theme: dict, box: int = 12, border: int = 4,
         t = ((x0 + size / 2) + (y0 + size / 2)) / (2 * scale)
         color = lerp(c1, c2, t)
         draw.rounded_rectangle((x0, y0, x0 + size, y0 + size),
-                               radius=size * 0.28, fill=color)
+                               radius=size * 0.22, fill=color)
         inner = ring * bs
         draw.rounded_rectangle((x0 + inner, y0 + inner,
                                 x0 + size - inner, y0 + size - inner),
-                               radius=size * 0.18, fill="white")
+                               radius=size * 0.14, fill="white")
         core = ring * 2 * bs
         draw.rounded_rectangle((x0 + core, y0 + core, x0 + size - core, y0 + size - core),
-                               radius=size * 0.12, fill=color)
+                               radius=size * 0.10, fill=color)
 
     for (r0, c0, _, _) in finder_zones:
         rounded_zone(r0, c0, 7, 1)
@@ -303,7 +312,7 @@ def render(qr: qrcode.QRCode, *, theme: dict, box: int = 12, border: int = 4,
     if logo is not None:
         lw, lh = logo.size
         lx, ly = (px - lw) // 2, (px - lh) // 2
-        pad = max(3, lw // 14)
+        pad = max(3, lw // 10)
         d2 = ImageDraw.Draw(img)
         d2.rounded_rectangle((lx - pad, ly - pad, lx + lw + pad, ly + lh + pad),
                              radius=lw // 5, fill="white")
@@ -417,7 +426,7 @@ def _scale_candidates(png: bytes) -> list[bytes]:
         im = Image.open(io.BytesIO(png))
     except Exception:
         return candidates
-    for w in (500, 700, 1000, 1200, 1500):
+    for w in (400, 500, 550, 700, 900, 1100, 1200, 1300, 1500):
         if im.width == w:
             continue
         h = round(w * im.height / im.width)
@@ -427,33 +436,46 @@ def _scale_candidates(png: bytes) -> list[bytes]:
     return candidates
 
 
+def _first_vcard(decode_fn, candidates):
+    """Return the first decode containing 'VCARD'; fall back to first non-empty hit.
+
+    Decoders can return garbage at unlucky scales, so keep probing instead of
+    short-circuiting on the first (bogus) hit.
+    """
+    fallback = None
+    for cand in candidates:
+        out = decode_fn(cand)
+        if out is None:
+            break
+        if out.strip():
+            if "VCARD" in out:
+                return out
+            fallback = fallback or out
+    return fallback
+
+
 def verify_bytes(png: bytes) -> str | None:
-    for cand in _scale_candidates(png):
-        out = _wechat_once(cand)
-        if out and out.strip():
-            return out
-        if out is None:
-            break
-    for cand in _scale_candidates(png):
-        out = _zbar_once(cand)
-        if out and out.strip():
-            return out
-        if out is None:
-            break
+    out = _first_vcard(_wechat_once, _scale_candidates(png))
+    if out:
+        return out
+    out = _first_vcard(_zbar_once, _scale_candidates(png))
+    if out:
+        return out
     try:
         import cv2
         import numpy as np
     except ImportError:
         return None
     detector = cv2.QRCodeDetector()
-    for cand in _scale_candidates(png):
+
+    def cv2_decode(cand):
         image = cv2.imdecode(np.frombuffer(cand, dtype=np.uint8), cv2.IMREAD_COLOR)
         if image is None:
-            continue
+            return ""
         data, _, _ = detector.detectAndDecode(image)
-        if data:
-            return data
-    return None
+        return data or ""
+
+    return _first_vcard(cv2_decode, _scale_candidates(png))
 
 
 def verify_decodable(path: Path) -> str | None:
@@ -509,7 +531,7 @@ def main() -> None:
     (out / "vcard.txt").write_text(payload)
 
     qr = make_qr(payload)
-    logo_px = int((qr.modules_count + 8) * 12 * 0.20)
+    logo_px = int((qr.modules_count + 8) * 12 * 0.16)
     logo = prepare_logo(args.logo, contact, logo_px, theme)
 
     styled = render(qr, theme=theme, logo=logo)

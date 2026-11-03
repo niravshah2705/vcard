@@ -1,5 +1,5 @@
 const FIELDS = ["first", "last", "title", "org", "phone", "phone_home", "email",
-  "website", "note", "street", "city", "region", "postal", "country"];
+  "website", "note", "street", "city", "region", "postal", "country", "photo_url"];
 
 const state = {
   theme: "indigo",
@@ -29,6 +29,8 @@ function collectContact() {
   });
   data.social = social;
   data.theme = state.theme;
+  data.social_note = $("social_note").checked;
+  data.center_badge = $("center_badge").checked;
   if (state.logo) data.logo = state.logo;
   return data;
 }
@@ -136,6 +138,7 @@ async function init() {
     const el = $(f);
     if (el) el.addEventListener("input", schedule);
   }
+  for (const id of ["social_note", "center_badge"]) $(id).addEventListener("input", schedule);
   $("add-social").addEventListener("click", () => { addSocialRow(); schedule(); });
   $("socials").addEventListener("input", schedule);
 

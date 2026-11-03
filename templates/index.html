@@ -38,6 +38,7 @@
       <label>State / Region <input id="region" value="CA"></label>
       <label>Postal code <input id="postal" placeholder="optional"></label>
       <label>Country <input id="country" value="USA"></label>
+      <label>Photo URL (caller-ID picture) <input id="photo_url" placeholder="https://…/me.jpg"></label>
       <label>Note <input id="note" placeholder="short line shown on the card"></label>
     </div>
 
@@ -47,6 +48,8 @@
 
     <h2>Design</h2>
     <div class="themes" id="themes"></div>
+    <label class="check"><input type="checkbox" id="social_note" checked> List socials in NOTE (visible in Google Contacts)</label>
+    <label class="check"><input type="checkbox" id="center_badge" checked> Center badge / logo (uses 30% error correction)</label>
     <label class="logo-row">Center logo (optional)
       <input type="file" id="logo" accept="image/*">
     </label>
