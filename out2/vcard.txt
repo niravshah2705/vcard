@@ -1,0 +1,14 @@
+BEGIN:VCARD
+VERSION:3.0
+N:Patel;Priya;;;
+FN:Priya Patel
+TITLE:Engineer
+ORG:Acme
+TEL;TYPE=CELL:+14155550100
+EMAIL;TYPE=INTERNET:priya@acme.io
+URL;TYPE=WORK:https://acme.io
+X-SOCIALPROFILE;TYPE=twitter:https://x.com/priyabuilds
+X-SOCIALPROFILE;TYPE=github:https://github.com/priyapatel
+X-SOCIALPROFILE;TYPE=linkedin:https://linkedin.com/in/in/priyapatel
+REV:2026-11-02
+END:VCARD

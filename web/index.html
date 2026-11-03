@@ -1,0 +1,475 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>vCard QR Studio — offline</title>
+<style>
+:root {
+  --bg: #f4f5fb; --panel: #fff; --ink: #16182b; --muted: #6b7194;
+  --line: #e3e5f0; --accent: #4f46e5; --ok: #0d9488; --warn: #d97706;
+}
+* { box-sizing: border-box; }
+body { margin: 0; font: 15px/1.45 -apple-system, "Helvetica Neue", Arial, sans-serif; background: var(--bg); color: var(--ink); }
+.topbar { display: flex; align-items: center; justify-content: space-between; padding: 14px 24px; background: var(--panel); border-bottom: 1px solid var(--line); position: sticky; top: 0; z-index: 5; }
+.brand { font-weight: 700; font-size: 17px; display: flex; align-items: center; gap: 10px; }
+.brand-mark { width: 22px; height: 22px; border-radius: 6px; background: linear-gradient(135deg, #4f46e5, #14b8a6); }
+.badge-offline { font-size: 11px; font-weight: 700; color: var(--ok); background: #d8f3ef; padding: 4px 10px; border-radius: 999px; }
+.stats { display: flex; gap: 8px; }
+.chip { font-size: 12px; font-weight: 600; padding: 4px 10px; border-radius: 999px; background: #eef0f9; color: var(--muted); }
+.chip.warn { background: #fdeeda; color: var(--warn); }
+.layout { display: grid; grid-template-columns: minmax(420px, 1fr) minmax(420px, 620px); gap: 24px; padding: 24px; max-width: 1320px; margin: 0 auto; align-items: start; }
+.panel { background: var(--panel); border: 1px solid var(--line); border-radius: 16px; padding: 22px; }
+h2 { font-size: 12px; letter-spacing: .08em; text-transform: uppercase; color: var(--muted); margin: 22px 0 10px; }
+h2:first-of-type { margin-top: 4px; }
+.grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 10px 12px; }
+label { display: flex; flex-direction: column; gap: 4px; font-size: 13px; color: var(--muted); }
+input:not([type=file]), select { font: inherit; color: var(--ink); background: #fafbff; border: 1px solid var(--line); border-radius: 9px; padding: 8px 10px; outline: none; width: 100%; }
+input:focus, select:focus { border-color: var(--accent); }
+input[type=file] { font-size: 12px; padding: 6px; }
+.social-row { display: grid; grid-template-columns: 140px 1fr 30px; gap: 8px; margin-bottom: 8px; align-items: center; }
+.remove { border: none; background: none; color: var(--muted); font-size: 16px; cursor: pointer; border-radius: 8px; }
+.remove:hover { color: #dc2626; background: #fee2e2; }
+button.ghost { border: 1px dashed var(--line); background: transparent; color: var(--accent); font-weight: 600; border-radius: 10px; padding: 8px 14px; cursor: pointer; }
+button.ghost:hover { border-color: var(--accent); }
+.themes { display: flex; gap: 10px; flex-wrap: wrap; }
+.theme-swatch { width: 64px; height: 40px; border-radius: 10px; border: 2px solid transparent; cursor: pointer; position: relative; padding: 0; }
+.theme-swatch.active { border-color: var(--ink); }
+.theme-swatch span { position: absolute; inset: auto 0 0 0; font-size: 10px; text-align: center; color: #fff; text-shadow: 0 1px 2px rgba(0,0,0,.6); }
+.hint { font-size: 12px; color: var(--muted); margin: 8px 0 0; }
+.preview-panel { position: sticky; top: 84px; }
+.tabs { display: flex; gap: 6px; margin-bottom: 14px; }
+.tabs button { border: 1px solid var(--line); background: #fafbff; border-radius: 999px; padding: 6px 14px; font-weight: 600; font-size: 13px; color: var(--muted); cursor: pointer; }
+.tabs button.active { background: var(--ink); color: #fff; border-color: var(--ink); }
+.stage { display: flex; justify-content: center; }
+#preview { max-width: 100%; max-height: 56vh; border-radius: 12px; box-shadow: 0 10px 30px rgba(22,24,43,.12); background: #fff; image-rendering: auto; }
+.actions { display: flex; gap: 8px; margin-top: 16px; flex-wrap: wrap; }
+.actions button { border: 1px solid var(--line); background: #fafbff; border-radius: 10px; padding: 9px 14px; font-weight: 600; cursor: pointer; }
+.actions .primary { background: var(--accent); border-color: var(--accent); color: #fff; }
+.payload { margin-top: 14px; }
+.payload summary { cursor: pointer; color: var(--muted); font-size: 13px; }
+.payload pre { background: #16182b; color: #d5f7ef; padding: 12px; border-radius: 10px; font-size: 11.5px; overflow: auto; max-height: 220px; white-space: pre-wrap; }
+.error-banner { display: none; background: #fee2e2; color: #b91c1c; padding: 10px 24px; font-size: 13px; }
+@media (max-width: 1000px) { .layout { grid-template-columns: 1fr; } .preview-panel { position: static; } }
+</style>
+</head>
+<body>
+<header class="topbar">
+  <div class="brand"><span class="brand-mark"></span> vCard QR Studio <span class="badge-offline">runs fully offline*</span></div>
+  <div class="stats">
+    <span class="chip" id="chip-bytes">— B</span>
+    <span class="chip" id="chip-version">v—</span>
+    <span class="chip warn" id="chip-dense" hidden>dense — print large</span>
+  </div>
+</header>
+<div class="error-banner" id="lib-error">Could not load the QR encoder (qrcode@1.5 from jsDelivr). Connect once online or copy the library next to this file.</div>
+
+<main class="layout">
+  <section class="panel form-panel">
+    <h2>Identity</h2>
+    <div class="grid-2">
+      <label>First name <input id="first" value="Alex"></label>
+      <label>Last name <input id="last" value="Morgan"></label>
+      <label>Job title <input id="title" value="Product Designer"></label>
+      <label>Company <input id="org" value="Northwind Studio"></label>
+    </div>
+    <h2>Contact</h2>
+    <div class="grid-2">
+      <label>Mobile <input id="phone" value="+14155550123"></label>
+      <label>Home phone <input id="phone_home"></label>
+      <label>Email <input id="email" value="alex@northwind.studio"></label>
+      <label>Website <input id="website" value="https://northwind.studio"></label>
+      <label>Street <input id="street"></label>
+      <label>City <input id="city" value="San Francisco"></label>
+      <label>State / Region <input id="region" value="CA"></label>
+      <label>Postal code <input id="postal"></label>
+      <label>Country <input id="country" value="USA"></label>
+      <label>Note <input id="note"></label>
+    </div>
+    <h2>Social profiles</h2>
+    <div id="socials"></div>
+    <button class="ghost" id="add-social" type="button">+ Add profile</button>
+    <h2>Design</h2>
+    <div class="themes" id="themes"></div>
+    <label class="logo-row" style="margin-top:14px">Center logo (optional)
+      <input type="file" id="logo" accept="image/*">
+    </label>
+    <p class="hint">* vCard 3.0 payload + canvas rendering happen in your browser; the QR encoder is fetched once from a CDN.</p>
+  </section>
+
+  <section class="panel preview-panel">
+    <nav class="tabs" id="tabs">
+      <button data-style="rounded" class="active">Rounded</button>
+      <button data-style="dots">Dots</button>
+      <button data-style="classic">Classic</button>
+      <button data-style="card">Card</button>
+    </nav>
+    <div class="stage"><canvas id="preview" width="10" height="10"></canvas></div>
+    <div class="actions">
+      <button id="dl-png" class="primary">Download PNG</button>
+      <button id="dl-vcf">Download .vcf</button>
+      <button id="dl-txt">Download vCard text</button>
+    </div>
+    <details class="payload"><summary>vCard payload</summary><pre id="payload"></pre></details>
+  </section>
+</main>
+
+<script>
+setTimeout(() => {
+  if (!window.__vcardStudioReady) document.getElementById("lib-error").style.display = "block";
+}, 5000);
+</script>
+<script type="module">
+import * as mod from "https://cdn.jsdelivr.net/npm/qrcode@1.5.4/+esm";
+const QRCode = mod.default ?? mod;
+const PLATFORMS = {
+  twitter:   ["twitter",   "https://x.com/"],
+  instagram: ["instagram", "https://instagram.com/"],
+  linkedin:  ["linkedin",  "https://linkedin.com/in/"],
+  facebook:  ["facebook",  "https://facebook.com/"],
+  github:    ["github",    "https://github.com/"],
+  youtube:   ["youtube",   "https://youtube.com/@"],
+  tiktok:    ["tiktok",    "https://tiktok.com/@"],
+  threads:   ["threads",   "https://threads.net/@"],
+  mastodon:  ["mastodon",  "https://mastodon.social/@"],
+  pinterest: ["pinterest", "https://pinterest.com/"],
+  snapchat:  ["snapchat",  "https://snapchat.com/add/"],
+};
+const THEMES = {
+  indigo:   { fg: ["#4338ca", "#0d9488"], badge: ["#6366f1", "#14b8a6"], text: "#111827", sub: "#6b7280", ring: "#e5e7eb" },
+  sunset:   { fg: ["#c2410c", "#be123c"], badge: ["#f97316", "#e11d48"], text: "#1f2937", sub: "#78716c", ring: "#fde8d7" },
+  midnight: { fg: ["#0f172a", "#475569"], badge: ["#1e293b", "#64748b"], text: "#0f172a", sub: "#64748b", ring: "#e2e8f0" },
+  forest:   { fg: ["#166534", "#0e7490"], badge: ["#15803d", "#0891b2"], text: "#14532d", sub: "#6b7280", ring: "#d7f0e2" },
+};
+const ALIGN_COUNTS = [0,0,0,1,1,1,1,1,2,2,2,2,2,3,3,3,3,3,4,4,4,4,4,5,5,5,5,5,6,6,6,6,6,7,7,7,7,7,7,7,7];
+const FIELDS = ["first","last","title","org","phone","phone_home","email","website",
+                "note","street","city","region","postal","country"];
+
+const state = { theme: "indigo", style: "rounded", logo: null };
+const urlStyle = new URLSearchParams(location.search).get("style");
+if (["rounded", "dots", "classic", "card"].includes(urlStyle)) state.style = urlStyle;
+const $ = (id) => document.getElementById(id);
+
+function socialValue(platform, handle) {
+  handle = handle.trim();
+  const known = PLATFORMS[platform.toLowerCase()];
+  const type = known ? known[0] : (platform || "custom");
+  const prefix = known ? known[1] : "";
+  const url = /^https?:\/\//.test(handle) ? handle : prefix + handle;
+  return [type, url];
+}
+
+function foldLine(line) {
+  const bytes = new TextEncoder().encode(line);
+  const chunks = [];
+  let start = 0, first = true;
+  while (start < bytes.length) {
+    let cut = Math.min(first ? 74 : 73, bytes.length - start);
+    while (cut > 0 && start + cut < bytes.length && (bytes[start + cut] & 0xC0) === 0x80) cut--;
+    chunks.push(new TextDecoder().decode(bytes.slice(start, start + cut)));
+    start += cut; first = false;
+  }
+  return chunks[0] + chunks.slice(1).map((c) => "\r\n " + c).join("");
+}
+
+function collectContact() {
+  const c = {};
+  for (const f of FIELDS) c[f] = $(f) ? $(f).value.trim() : "";
+  c.social = [];
+  document.querySelectorAll(".social-row").forEach((row) => {
+    const handle = row.querySelector("input").value.trim();
+    if (!handle) return;
+    const platform = row.querySelector("select").value;
+    c.social.push([platform, handle]);
+  });
+  return c;
+}
+
+function buildVCard(c) {
+  const L = ["BEGIN:VCARD", "VERSION:3.0",
+             `N:${c.last};${c.first};;;`, `FN:${(c.first + " " + c.last).trim()}`];
+  if (c.title) L.push(`TITLE:${c.title}`);
+  if (c.org) L.push(`ORG:${c.org}`);
+  if (c.phone) L.push(`TEL;TYPE=CELL:${c.phone}`);
+  if (c.phone_home) L.push(`TEL;TYPE=HOME:${c.phone_home}`);
+  if (c.email) L.push(`EMAIL;TYPE=INTERNET:${c.email}`);
+  if (c.website) L.push(`URL;TYPE=WORK:${c.website}`);
+  if (c.street || c.city || c.region || c.postal || c.country)
+    L.push(`ADR;TYPE=WORK:;;${c.street};${c.city};${c.region};${c.postal};${c.country}`);
+  for (const [p, h] of c.social) {
+    const [type, url] = socialValue(p, h);
+    L.push(`X-SOCIALPROFILE;TYPE=${type}:${url}`);
+  }
+  if (c.note) L.push(`NOTE:${c.note}`);
+  L.push("END:VCARD");
+  return L.map(foldLine).join("\r\n") + "\r\n";
+}
+
+function hexRgb(h) {
+  h = h.replace("#", "");
+  return [0, 2, 4].map((i) => parseInt(h.slice(i, i + 2), 16));
+}
+const lerp = (a, b, t) => a.map((v, i) => Math.round(v + (b[i] - v) * t));
+
+function alignmentCenters(version) {
+  if (version === 1) return [];
+  const num = ALIGN_COUNTS[version - 1];
+  if (!num) return [];
+  const step = version === 32 ? 26 : Math.floor((version * 4 + 4) / (num * 2 - 2)) * 2;
+  const out = [6];
+  for (let i = 0; i < num - 1; i++) out.push(4 * version + 10 - i * step);
+  return [...new Set(out)].sort((a, b) => a - b);
+}
+
+function drawRoundedZone(g, x0, y0, size, bs, color) {
+  const r = (v) => Math.round(v);
+  const rr = (x, y, w, h, rad, fill) => {
+    g.beginPath();
+    g.roundRect(x, y, w, h, Math.min(rad, w / 2));
+    g.fillStyle = fill; g.fill();
+  };
+  rr(x0, y0, size, size, size * 0.28, color);
+  rr(x0 + bs, y0 + bs, size - 2 * bs, size - 2 * bs, size * 0.18, "#ffffff");
+  rr(x0 + 2 * bs, y0 + 2 * bs, size - 4 * bs, size - 4 * bs, size * 0.12, color);
+}
+
+function renderQR(qr, theme, style, logoImg, boxPx) {
+  const n = qr.modules.size;
+  const border = 4;
+  const side = n + border * 2;
+  const px = side * boxPx;
+  const ss = 3;
+  const scale = px * ss;
+  const cv = document.createElement("canvas");
+  cv.width = cv.height = scale;
+  const g = cv.getContext("2d");
+  g.fillStyle = "#ffffff";
+  g.fillRect(0, 0, scale, scale);
+
+  const c1 = hexRgb(theme.fg[0]), c2 = hexRgb(theme.fg[1]);
+  const bs = boxPx * ss, B = border * ss;
+  const atFinder = (r, c) =>
+    (r <= 7 && c <= 7) || (r <= 7 && c >= n - 8) || (r >= n - 8 && c <= 7);
+  const centers = alignmentCenters(qr.version);
+  const last = centers[centers.length - 1];
+  const inAlign = (r, c) => centers.some((ar) => centers.some((ac) =>
+    !((ar === 6 && ac === 6) || (ar === 6 && ac === last) || (ar === last && ac === 6)) &&
+    r >= ar - 2 && r <= ar + 2 && c >= ac - 2 && c <= ac + 2));
+
+  const logoSide = Math.round(px * 0.20) * ss;
+  const clearHalf = logoSide / 2 + bs;
+  const cx = scale / 2, cy = scale / 2;
+  const hasCenter = style !== "classic";
+
+  const ratio = style === "dots" ? 0.82 : 0.96;
+  const half = bs * ratio / 2;
+  const data = qr.modules.data;
+  for (let r = 0; r < n; r++) {
+    for (let c = 0; c < n; c++) {
+      if (!data[r * n + c] || atFinder(r, c) || inAlign(r, c)) continue;
+      const x = (c + border) * bs + bs / 2, y = (r + border) * bs + bs / 2;
+      if (hasCenter && Math.abs(x - cx) < clearHalf && Math.abs(y - cy) < clearHalf) continue;
+      g.fillStyle = `rgb(${lerp(c1, c2, (x + y) / (2 * scale)).join(",")})`;
+      if (style === "dots") {
+        g.beginPath(); g.arc(x, y, half, 0, 7); g.fill();
+      } else {
+        g.beginPath(); g.roundRect(x - half, y - half, half * 2, half * 2, half * 0.62); g.fill();
+      }
+    }
+  }
+
+  if (style !== "classic") {
+    const zone = (r0, c0, span) => {
+      const x0 = (c0 + border) * bs, y0 = (r0 + border) * bs, size = span * bs;
+      drawRoundedZone(g, x0, y0, size, bs,
+        `rgb(${lerp(c1, c2, (x0 + size / 2 + y0 + size / 2) / (2 * scale)).join(",")})`);
+    };
+    zone(0, 0, 7); zone(0, n - 7, 7); zone(n - 7, 0, 7);
+    if (centers) for (const ar of centers) for (const ac of centers) {
+      if ((ar === 6 && (ac === 6 || ac === last)) || (ar === last && ac === 6)) continue;
+      zone(ar - 2, ac - 2, 5);
+    }
+  } else {
+    g.fillStyle = `rgb(${c1.join(",")})`;
+    for (let r = 0; r < n; r++) for (let c = 0; c < n; c++)
+      if (data[r * n + c]) g.fillRect((c + border) * bs, (r + border) * bs, bs, bs);
+  }
+
+  const out = document.createElement("canvas");
+  out.width = out.height = px;
+  const og = out.getContext("2d");
+  og.imageSmoothingQuality = "high";
+  og.drawImage(cv, 0, 0, scale, scale, 0, 0, px, px);
+
+  if (hasCenter) {
+    const lw = Math.round(px * 0.20), lx = (px - lw) / 2, pad = Math.max(3, lw / 14);
+    og.fillStyle = "#ffffff";
+    og.beginPath(); og.roundRect(lx - pad, lx - pad, lw + 2 * pad, lw + 2 * pad, lw / 5); og.fill();
+    if (logoImg) {
+      og.save();
+      og.beginPath(); og.roundRect(lx, lx, lw, lw, lw / 6); og.clip();
+      og.drawImage(logoImg, lx, lx, lw, lw);
+      og.restore();
+    } else {
+      const badge = og.createLinearGradient(lx, lx, lx + lw, lx + lw);
+      badge.addColorStop(0, theme.badge[0]); badge.addColorStop(1, theme.badge[1]);
+      og.fillStyle = badge;
+      og.beginPath(); og.arc(lx + lw / 2, lx + lw / 2, lw / 2 - 2, 0, 7); og.fill();
+      og.fillStyle = "#fff";
+      og.font = `700 ${Math.round(lw * 0.42)}px -apple-system, "Helvetica Neue", Arial`;
+      og.textAlign = "center"; og.textBaseline = "middle";
+      og.fillText(state.initials || "", lx + lw / 2, lx + lw / 2 + 1);
+    }
+  }
+  return out;
+}
+
+function buildCard(qrCanvas, contact, theme) {
+  const w = qrCanvas.width, pad = Math.round(w * 0.07);
+  const head = Math.round(w * 0.30);
+  const cv = document.createElement("canvas");
+  cv.width = w + pad * 2;
+  cv.height = pad + w + head + pad;
+  const g = cv.getContext("2d");
+  g.fillStyle = "#fff"; g.fillRect(0, 0, cv.width, cv.height);
+  g.strokeStyle = theme.ring; g.lineWidth = Math.max(2, cv.width / 200);
+  g.beginPath(); g.roundRect(1, 1, cv.width - 2, cv.height - 2, cv.width * 0.04); g.stroke();
+  g.drawImage(qrCanvas, pad, pad);
+  let y = pad + w + head * 0.18;
+  g.textAlign = "center";
+  g.fillStyle = theme.text;
+  g.font = `700 ${Math.round(w * 0.075)}px -apple-system, "Helvetica Neue", Arial`;
+  g.fillText((contact.first + " " + contact.last).trim(), cv.width / 2, y);
+  const sub = [contact.title, contact.org].filter(Boolean).join("  ·  ");
+  if (sub) {
+    y += w * 0.085;
+    g.fillStyle = theme.sub;
+    g.font = `${Math.round(w * 0.045)}px -apple-system, "Helvetica Neue", Arial`;
+    g.fillText(sub, cv.width / 2, y);
+  }
+  const handles = contact.social.map(([p, h]) =>
+    socialValue(p, h)[1].replace(/^https?:\/\//, "").replace(/\/$/, ""));
+  if (handles.length) {
+    y += w * 0.06;
+    g.font = `${Math.round(w * 0.032)}px -apple-system, "Helvetica Neue", Arial`;
+    g.fillStyle = theme.sub;
+    let line = "";
+    for (const h of handles) {
+      const cand = line ? line + "  ·  " + h : h;
+      if (g.measureText(cand).width <= cv.width - pad * 2) line = cand;
+      else { g.fillText(line, cv.width / 2, y); y += w * 0.05; line = h; }
+    }
+    if (line) g.fillText(line, cv.width / 2, y);
+  }
+  return cv;
+}
+
+function addSocialRow(platform = "twitter", handle = "") {
+  const row = document.createElement("div");
+  row.className = "social-row";
+  const sel = document.createElement("select");
+  for (const p of Object.keys(PLATFORMS)) {
+    const o = document.createElement("option");
+    o.value = o.textContent = p;
+    sel.appendChild(o);
+  }
+  const extra = document.createElement("option");
+  extra.value = "custom"; extra.textContent = "custom";
+  sel.appendChild(extra);
+  sel.value = platform;
+  const inp = document.createElement("input");
+  inp.placeholder = "handle or full URL";
+  inp.value = handle;
+  const btn = document.createElement("button");
+  btn.className = "remove"; btn.type = "button"; btn.textContent = "×";
+  btn.addEventListener("click", () => { row.remove(); update(); });
+  row.append(sel, inp, btn);
+  $("socials").appendChild(row);
+}
+
+function renderThemes() {
+  const wrap = $("themes");
+  wrap.innerHTML = "";
+  for (const [name, t] of Object.entries(THEMES)) {
+    const b = document.createElement("button");
+    b.type = "button";
+    b.className = "theme-swatch" + (name === state.theme ? " active" : "");
+    b.style.background = `linear-gradient(135deg, ${t.fg[0]}, ${t.fg[1]})`;
+    const s = document.createElement("span");
+    s.textContent = name;
+    b.appendChild(s);
+    b.addEventListener("click", () => { state.theme = name; renderThemes(); update(); });
+    wrap.appendChild(b);
+  }
+}
+
+let lastPayload = "";
+function update() {
+  if (typeof QRCode === "undefined") { $("lib-error").style.display = "block"; return; }
+  const contact = collectContact();
+  if (!contact.first && !contact.last) return;
+  state.initials = ((contact.first[0] || "") + (contact.last[0] || "")).toUpperCase() || "?";
+  lastPayload = buildVCard(contact);
+  const bytes = new TextEncoder().encode(lastPayload).length;
+  let qr;
+  try {
+    qr = QRCode.create(lastPayload, { errorCorrectionLevel: "H" });
+  } catch (e) {
+    $("chip-version").textContent = "too long";
+    return;
+  }
+  const theme = THEMES[state.theme];
+  const boxPx = qr.modules.size > 90 ? 10 : 12;
+  const canvas = renderQR(qr, theme, state.style === "card" ? "rounded" : state.style,
+                          state.logo, boxPx);
+  const shown = state.style === "card" ? buildCard(canvas, contact, theme) : canvas;
+  const stage = $("preview");
+  stage.width = shown.width; stage.height = shown.height;
+  stage.style.maxWidth = "100%";
+  stage.getContext("2d").drawImage(shown, 0, 0);
+  $("chip-bytes").textContent = `${bytes} B`;
+  $("chip-version").textContent = `QR v${qr.version} · ${qr.modules.size}×${qr.modules.size}`;
+  $("chip-dense").hidden = qr.version <= 20;
+  $("payload").textContent = lastPayload.replace(/\r\n/g, "\n");
+}
+
+function download(name, url) {
+  const a = document.createElement("a");
+  a.href = url; a.download = name; a.click();
+}
+
+$("add-social").addEventListener("click", () => { addSocialRow(); update(); });
+$("socials").addEventListener("input", update);
+for (const f of FIELDS) $(f) && $(f).addEventListener("input", update);
+$("tabs").addEventListener("click", (e) => {
+  const b = e.target.closest("button");
+  if (!b) return;
+  state.style = b.dataset.style;
+  document.querySelectorAll(".tabs button").forEach((x) => x.classList.toggle("active", x === b));
+  update();
+});
+$("logo").addEventListener("change", (e) => {
+  const file = e.target.files[0];
+  if (!file) { state.logo = null; update(); return; }
+  const img = new Image();
+  img.onload = () => { state.logo = img; update(); };
+  img.src = URL.createObjectURL(file);
+});
+$("dl-png").addEventListener("click", () =>
+  download(`vcard_qr_${state.style}.png`, $("preview").toDataURL("image/png")));
+$("dl-vcf").addEventListener("click", () =>
+  download("vcard.vcf", URL.createObjectURL(new Blob([lastPayload], { type: "text/vcard" }))));
+$("dl-txt").addEventListener("click", () =>
+  download("vcard.txt", URL.createObjectURL(new Blob([lastPayload], { type: "text/plain" }))));
+
+renderThemes();
+document.querySelectorAll(".tabs button").forEach((b) =>
+  b.classList.toggle("active", b.dataset.style === state.style));
+addSocialRow("twitter", "alexmorgan");
+addSocialRow("instagram", "alex.builds");
+addSocialRow("linkedin", "alexmorgan");
+update();
+window.__vcardStudioReady = true;
+</script>
+</body>
+</html>

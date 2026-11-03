@@ -1,0 +1,80 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>vCard QR Studio</title>
+<link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+<header class="topbar">
+  <div class="brand"><span class="brand-mark"></span> vCard QR Studio</div>
+  <div class="stats" id="stats">
+    <span class="chip" id="chip-bytes">— B</span>
+    <span class="chip" id="chip-version">v—</span>
+    <span class="chip ok" id="chip-verify" hidden>scan verified</span>
+    <span class="chip warn" id="chip-dense" hidden>dense — print large</span>
+  </div>
+</header>
+
+<main class="layout">
+  <section class="panel form-panel">
+    <h2>Identity</h2>
+    <div class="grid-2">
+      <label>First name <input id="first" value="Alex"></label>
+      <label>Last name <input id="last" value="Morgan"></label>
+      <label>Job title <input id="title" value="Product Designer"></label>
+      <label>Company <input id="org" value="Northwind Studio"></label>
+    </div>
+
+    <h2>Contact</h2>
+    <div class="grid-2">
+      <label>Mobile <input id="phone" placeholder="+1 415 555 0123" value="+14155550123"></label>
+      <label>Home phone <input id="phone_home" placeholder="optional"></label>
+      <label>Email <input id="email" placeholder="you@example.com" value="alex@northwind.studio"></label>
+      <label>Website <input id="website" placeholder="https://…" value="https://northwind.studio"></label>
+      <label>Street <input id="street" placeholder="optional"></label>
+      <label>City <input id="city" placeholder="San Francisco" value="San Francisco"></label>
+      <label>State / Region <input id="region" value="CA"></label>
+      <label>Postal code <input id="postal" placeholder="optional"></label>
+      <label>Country <input id="country" value="USA"></label>
+      <label>Note <input id="note" placeholder="short line shown on the card"></label>
+    </div>
+
+    <h2>Social profiles</h2>
+    <div id="socials"></div>
+    <button class="ghost" id="add-social" type="button">+ Add profile</button>
+
+    <h2>Design</h2>
+    <div class="themes" id="themes"></div>
+    <label class="logo-row">Center logo (optional)
+      <input type="file" id="logo" accept="image/*">
+    </label>
+    <p class="hint">No logo? We draw a gradient badge with the contact's initials.</p>
+  </section>
+
+  <section class="panel preview-panel">
+    <nav class="tabs" id="tabs">
+      <button data-tab="styled" class="active">Rounded</button>
+      <button data-tab="dots">Dots</button>
+      <button data-tab="classic">Classic</button>
+      <button data-tab="card">Card</button>
+    </nav>
+    <div class="stage">
+      <img id="preview" alt="QR preview">
+      <div class="spinner" id="spinner" hidden></div>
+    </div>
+    <div class="actions">
+      <button id="dl-png" class="primary">Download PNG</button>
+      <button id="dl-vcf">Download .vcf</button>
+      <button id="dl-txt">Download vCard text</button>
+    </div>
+    <details class="payload">
+      <summary>vCard payload</summary>
+      <pre id="payload"></pre>
+    </details>
+  </section>
+</main>
+<script src="/static/app.js"></script>
+</body>
+</html>
